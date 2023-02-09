@@ -41,9 +41,14 @@ const scrapeSearchPages = async () => {
 };
 
 const scrapePostFromPages = async () => {
-  const pageKeys = (await storage.keys()).filter((key) =>
-    key.startsWith("page-")
-  );
+  const pageKeys = (await storage.keys())
+    .filter((key) => key.startsWith("page-"))
+    .sort((a, b) => {
+      const pageA = parseInt(a.split("-")[1]);
+      const pageB = parseInt(b.split("-")[1]);
+      return pageA - pageB;
+    });
+
   let numPagesProcessed = 0;
   for (const pageKey of pageKeys) {
     numPagesProcessed++;
@@ -97,7 +102,7 @@ const scrapePostFromPages = async () => {
             `[${numPostsProcessed}/${postIds.length}] Post ${postId} saved`
           );
           await new Promise((resolve) =>
-            setTimeout(resolve, Math.random() * 1000 + 2000)
+            setTimeout(resolve, Math.random() * 1000 + 500)
           );
         } catch (e) {
           console.error(`Error on post ${postId}`);
