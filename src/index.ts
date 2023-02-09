@@ -1,9 +1,6 @@
 import got from "got";
 import storage from "node-persist";
-import htmlparser2 from "htmlparser2";
-import CSSselect from "css-select";
-import { parse } from "node-html-parser";
-import cheerio, { load } from "cheerio";
+import { load } from "cheerio";
 
 const MAX_SEARCH_PAGES = 331;
 const SEARCH_RESULTS_LIMIT = 100;
@@ -117,8 +114,25 @@ const scrapePostFromPages = async () => {
   }
 };
 
+const convertPostsToText = async () => {
+  const randomInt = Math.floor(Math.random() * 33000);
+  const postKeys = (await storage.keys())
+    .filter((key) => key.startsWith("post-"))
+    .slice(randomInt, randomInt + 20);
+
+  for (const postKey of postKeys) {
+    const post: string = await storage.getItem(postKey);
+    const $ = load(post, { xmlMode: true });
+    const postContent = $("content").text();
+    // const postText = load(`<div>${postContent}</div>`).text();
+    console.log(postContent);
+    console.log("");
+  }
+};
+
 (async () => {
   await storage.init({ dir: "storage" });
   // await scrapeSearchPages();
-  await scrapePostFromPages();
+  // await scrapePostFromPages();
+  await convertPostsToText();
 })();
