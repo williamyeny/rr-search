@@ -1,6 +1,7 @@
 import got from "got";
 import storage from "node-persist";
 import { load } from "cheerio";
+import { encode } from "gpt-3-encoder";
 
 const MAX_SEARCH_PAGES = 331;
 const SEARCH_RESULTS_LIMIT = 100;
@@ -115,24 +116,33 @@ const scrapePostFromPages = async () => {
 };
 
 const convertPostsToText = async () => {
-  const randomInt = Math.floor(Math.random() * 33000);
-  const postKeys = (await storage.keys())
-    .filter((key) => key.startsWith("post-"))
-    .slice(randomInt, randomInt + 20);
+  const postKeys = (await storage.keys()).filter((key) =>
+    key.startsWith("post-")
+  );
 
+  let numTokens = 0;
   for (const postKey of postKeys) {
     const post: string = await storage.getItem(postKey);
     const $ = load(post, { xmlMode: true });
     const postContent = $("content").text();
-    // const postText = load(`<div>${postContent}</div>`).text();
-    console.log(postContent);
-    console.log("");
+    const encoded = encode(postContent);
+    numTokens += encoded.length;
   }
+  console.log("numTokens", numTokens);
+};
+
+const viewPost = async (postId: string) => {
+  const postKey = `post-${postId}`;
+  const post: string = await storage.getItem(postKey);
+  const $ = load(post, { xmlMode: true });
+  const postContent = $("content").text();
+  console.log(postContent);
 };
 
 (async () => {
   await storage.init({ dir: "storage" });
   // await scrapeSearchPages();
   // await scrapePostFromPages();
-  await convertPostsToText();
+  // await convertPostsToText();
+  await viewPost("12779268");
 })();
