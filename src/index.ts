@@ -139,10 +139,55 @@ const viewPost = async (postId: string) => {
   console.log(postContent);
 };
 
+const processPosts = async () => {
+  const postKeys = (await storage.keys()).filter((key) =>
+    key.startsWith("post-")
+  );
+  // const postKeys = ["post-9570484"];
+  // const postKeys = ["post-15218375"]; // Two sibling blockquotes
+  // const postKeys = ["post-9923861"]; // Nested blockquotes
+
+  for (const postKey of postKeys) {
+    const post: string = await storage.getItem(postKey);
+    const id = postKey.split("-")[1];
+    const $ = load(post, { xmlMode: true });
+    const rawContent = $("content").text();
+
+    const cleanedPost = rawContent
+      // Get rid of all font tags.
+      .replace(/<\/?font.*?>/g, "")
+      // Get rid of more than one br.
+      .replace(/(<br \/>){2,}/g, "<br />")
+      // Remove "<hr />" at the beginning of the blockquote
+      .replace(/<blockquote>Quote:<hr \/><br \/>/g, "<blockquote>Quote:<br />")
+      // Remove "<hr /> and <br />" at the end of the blockquote
+      .replace(/<br \/><hr \/>(<\/blockquote>)?/g, "$1")
+      // Bold tags around "<b><i>[user] said:</i></b>" (within the blockquote)
+      .replace(
+        /<blockquote>Quote:(.*?)<b><i>(.*?) said:<\/i><\/b>(.*?)<\/blockquote>/g,
+        "<blockquote>Quote:<br /><strong>$2 said:</strong>$3</blockquote>"
+      );
+
+    const postJson = {
+      id: parseInt($("id").text()),
+      first: parseInt($("first").text()),
+      last: parseInt($("last").text()),
+      when: parseInt($("when").text()),
+      utime: $("utime").text(),
+      cleanedPost,
+    };
+    postJson.cleanedPost = cleanedPost;
+
+    await storage.setItem(`processedPost-${id}`, postJson);
+    console.log(`Post ${id} processed`);
+  }
+};
+
 (async () => {
   await storage.init({ dir: "storage" });
   // await scrapeSearchPages();
   // await scrapePostFromPages();
   // await convertPostsToText();
-  await viewPost("12779268");
+  // await viewPost("9570484");
+  await processPosts();
 })();
