@@ -69,45 +69,56 @@ const scrapePostFromPages = async (storageRaw: storage.LocalStorage) => {
       const page: string = await storageRaw.getItem(pageKey);
 
       const $ = load(page);
-      const postIds = $("body")
-        .find(".forumtr")
-        .map((_, el) => el.attribs.id.slice(1))
+      const postInfo = $("body")
+        .find(".pp")
+        .map((_, el) => ({ id: el.attribs.id.slice(1), title: $(el).text() }))
         .get();
 
       console.log(
-        `[${numPagesProcessed}/${pageKeys.length}] Saving ${postIds.length} posts from ${pageKey}...`
+        `[${numPagesProcessed}/${pageKeys.length}] Saving ${postInfo.length} posts from ${pageKey}...`
       );
 
       let numPostsProcessed = 0;
-      for (const postId of postIds) {
+      for (const { id, title } of postInfo) {
         numPostsProcessed++;
         try {
-          const postKey = `post-${postId}`;
+          const postKey = `post-${id}`;
           const storedPost = await storageRaw.getItem(postKey);
           if (storedPost) {
-            console.log(`Post ${postId} already exists`);
+            console.log(`Post ${id} already exists`);
             continue;
           }
           const data = await got
             .get(
-              `https://www.shroomery.org/forums/includes/tooltip/postcontents.php?n=${postId}`
+              `https://www.shroomery.org/forums/includes/tooltip/postcontents.php?n=${id}`
             )
             .text();
 
           if (data.includes("<name></name>") || !data.includes("<name>")) {
-            console.log(`Post ${postId} is not valid: ${data.slice(0, 100)}`);
+            console.log(`Post ${id} is not valid: ${data.slice(0, 100)}`);
             continue;
           }
 
-          await storageRaw.setItem(postKey, data);
+          const $ = load(data, { xmlMode: true });
+          const postJson = {
+            id: parseInt($("id").text()),
+            title,
+            first: parseInt($("first").text()),
+            last: parseInt($("last").text()),
+            when: parseInt($("when").text()),
+            utime: $("utime").text(),
+            content: $("content").text(),
+          };
+
+          await storageRaw.setItem(postKey, postJson);
           console.log(
-            `[${numPostsProcessed}/${postIds.length}] Post ${postId} saved`
+            `[${numPostsProcessed}/${postInfo.length}] Post ${id} saved`
           );
           await new Promise((resolve) =>
             setTimeout(resolve, Math.random() * 1000 + 500)
           );
         } catch (e) {
-          console.error(`Error on post ${postId}`);
+          console.error(`Error on post ${id}`);
           console.error(e);
         }
       }
@@ -133,12 +144,11 @@ const convertProcessedPostsToMarkdown = async (
   let postWithMaxTokens = "";
   let numTokens = 0;
   for (const postKey of postKeys) {
-    const post: { id: number; cleanedPost: string } = await storage.getItem(
+    const post: { id: number; content: string } = await storage.getItem(
       postKey
     );
-    const cleanedPost = post.cleanedPost;
-    const cleanedPostMarkdown = nhm.translate(cleanedPost);
-    const encoded = encode(cleanedPostMarkdown);
+    const markdown = nhm.translate(post.content);
+    const encoded = encode(markdown);
     if (encoded.length > maxTokens) {
       maxTokens = encoded.length;
       postWithMaxTokens = postKey;
@@ -170,12 +180,12 @@ const processPosts = async (
   // const postKeys = ["post-9923861"]; // Nested blockquotes
 
   for (const postKey of postKeys) {
-    const post: string = await storageRaw.getItem(postKey);
-    const id = postKey.split("-")[1];
-    const $ = load(post, { xmlMode: true });
-    const rawContent = $("content").text();
+    const post: Record<string, string | number> = await storageRaw.getItem(
+      postKey
+    );
+    const content = post.content as string;
 
-    const cleanedPost = rawContent
+    const cleanedContent = content
       // Get rid of all font tags.
       .replace(/<\/?font.*?>/g, "")
       // Get rid of more than one br.
@@ -191,17 +201,12 @@ const processPosts = async (
       );
 
     const postJson = {
-      id: parseInt($("id").text()),
-      first: parseInt($("first").text()),
-      last: parseInt($("last").text()),
-      when: parseInt($("when").text()),
-      utime: $("utime").text(),
-      cleanedPost,
+      ...post,
+      content: cleanedContent,
     };
-    postJson.cleanedPost = cleanedPost;
 
-    await storageProcessed.setItem(`processedPost-${id}`, postJson);
-    console.log(`Post ${id} processed`);
+    await storageProcessed.setItem(`processedPost-${post.id}`, postJson);
+    console.log(`Post ${post.id} processed`);
   }
 };
 
@@ -217,7 +222,7 @@ const moveProcessedData = async (
   );
   let i = 0;
   for (const postKey of postKeys) {
-    const post: any = await storageRaw.getItem(postKey);
+    const post = await storageRaw.getItem(postKey);
     storageProcessed.setItem(postKey, post);
     storageRaw.removeItem(postKey);
     console.log(`${++i}/${postKeys.length}`);
@@ -241,12 +246,12 @@ const getEmbeddings = async (
       skipped++;
       continue;
     }
-    const post: { cleanedPost: string; when: number } =
+    const post: { content: string; when: number } =
       await storageProcessed.getItem(postKey);
 
     postsToEmbed.push({
       id,
-      content: nhm.translate(post.cleanedPost),
+      content: nhm.translate(post.content),
       when: post.when,
     });
   }
@@ -321,6 +326,42 @@ const search = async (
   console.log(result.slice(0, 5));
 };
 
+// Whoops.
+const addTitle = async (
+  storageRaw: storage.LocalStorage,
+  storageProcessed: storage.LocalStorage
+) => {
+  await Promise.all([storageRaw.init(), storageProcessed.init()]);
+  const pageKeys = (await storageRaw.keys()).filter((key) =>
+    key.startsWith("page-")
+  );
+  for (const pageKey of pageKeys) {
+    const page: string = await storageRaw.getItem(pageKey);
+    const $ = load(page);
+    const postInfo = $("body")
+      .find(".pp")
+      .map((_, el) => ({ id: el.attribs.id.slice(1), title: $(el).text() }))
+      .get();
+
+    for (const { id, title } of postInfo) {
+      const post: Record<string, string | number> | undefined =
+        await storageProcessed.getItem(`processedPost-${id}`);
+      if (post) {
+        const { cleanedPost, ...rest } = post;
+        await storageProcessed.setItem(`processedPost-${id}`, {
+          ...rest,
+          content: cleanedPost,
+          title,
+        });
+      } else {
+        console.error(`Post ${id} not found`);
+      }
+    }
+
+    console.log(`Processed ${pageKey}`);
+  }
+};
+
 (async () => {
   const storageProcessed = storage.create({ dir: "storage-processed" });
   const storageRaw = storage.create({ dir: "storage-raw" });
@@ -331,7 +372,8 @@ const search = async (
   // await processPosts(storageRaw, storageProcessed);
   // await convertProcessedPostsToMarkdown(storageProcessed);
   // moveProcessedData(storageRaw, storageProcessed);
+  await addTitle(storageRaw, storageProcessed);
 
-  await getEmbeddings(storageProcessed, storageEmbeddings);
-  // search("Is it safe to eat contaminated mushrooms", storageEmbeddings);
+  // await getEmbeddings(storageProcessed, storageEmbeddings);
+  // search("Easiest way to get started for a beginner", storageEmbeddings);
 })();
