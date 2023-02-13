@@ -262,10 +262,11 @@ const getEmbeddings = async (
   );
 
   let postsToEmbed: { id: number; content: string; when: number }[] = [];
+  let skipped = 0;
   for (const postKey of postKeys) {
     const id = parseInt(postKey.split("-")[1]);
     if (await storageEmbeddings.getItem(`embedding-${id}`)) {
-      console.log(`Post ${id} already embedded`);
+      skipped++;
       continue;
     }
     const post: { cleanedPost: string; when: number } =
@@ -277,10 +278,11 @@ const getEmbeddings = async (
       when: post.when,
     });
   }
-  postsToEmbed = postsToEmbed.slice(0, 70); // Remove later.
+  console.log(`Skipped ${skipped} posts; already embedded.`);
+  postsToEmbed = postsToEmbed.slice(0, 4000); // Remove later.
 
   // Call OpenAI API in batches.
-  const BATCH_SIZE = 50;
+  const BATCH_SIZE = 200;
   const batches: string[][] = [];
   for (let i = 0; i < postsToEmbed.length; i += BATCH_SIZE) {
     batches.push(
@@ -291,13 +293,15 @@ const getEmbeddings = async (
   console.log("Starting embedding...");
 
   let offset = 0;
+  let totalTokensUsed = 0;
   for (const batch of batches) {
     const res = await openai.createEmbedding({
       model: "text-embedding-ada-002",
       input: batch,
     });
 
-    const { data } = res.data;
+    const { data, usage } = res.data;
+    totalTokensUsed += usage.total_tokens;
 
     for (const entry of data) {
       const post = postsToEmbed[entry.index + offset];
@@ -310,9 +314,14 @@ const getEmbeddings = async (
     offset += batch.length;
     console.log(`${offset}/${postsToEmbed.length} embedded`);
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    // break; // Rm after done testing.
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
+
+  console.log(
+    `${totalTokensUsed} tokens used, costing ${
+      (totalTokensUsed / 1000) * 0.0004
+    }`
+  );
 };
 
 const search = async (
@@ -353,6 +362,6 @@ const search = async (
   // await checkPostsHTMLTokens();
   // moveProcessedData(storageRaw, storageProcessed);
 
-  // await getEmbeddings(storageProcessed, storageEmbeddings);
-  search("Distilled water storage vs agar slants", storageEmbeddings);
+  await getEmbeddings(storageProcessed, storageEmbeddings);
+  // search("Is it safe to eat contaminated mushrooms", storageEmbeddings);
 })();
