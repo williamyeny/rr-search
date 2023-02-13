@@ -3,20 +3,29 @@ import storage from "node-persist";
 import { load } from "cheerio";
 import { encode } from "gpt-3-encoder";
 import { NodeHtmlMarkdown } from "node-html-markdown";
+import { Configuration, OpenAIApi } from "openai";
+import * as dotenv from "dotenv";
+import similarity from "compute-cosine-similarity";
+
+dotenv.config();
+
+const openai = new OpenAIApi(
+  new Configuration({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+);
 
 const nhm = new NodeHtmlMarkdown({
   maxConsecutiveNewlines: 2,
   useInlineLinks: false,
 });
 
-const MAX_SEARCH_PAGES = 331;
-const SEARCH_RESULTS_LIMIT = 100;
-const getPageKey = (page: number) =>
-  `page-${page}-limit-${SEARCH_RESULTS_LIMIT}`;
-
 const scrapeSearchPages = async () => {
+  const MAX_SEARCH_PAGES = 331;
+  const SEARCH_RESULTS_LIMIT = 100;
+
   for (let i = 0; i < MAX_SEARCH_PAGES; i++) {
-    const pageKey = getPageKey(i);
+    const pageKey = `page-${i}-limit-${SEARCH_RESULTS_LIMIT}`;
     const storedPage = await storage.getItem(pageKey);
     if (storedPage) {
       console.log(`Page ${i} already exists`);
@@ -243,9 +252,98 @@ const moveProcessedData = async (
   }
 };
 
+const getEmbeddings = async (
+  storageProcessed: storage.LocalStorage,
+  storageEmbeddings: storage.LocalStorage
+) => {
+  await Promise.all([storageProcessed.init(), storageEmbeddings.init()]);
+  const postKeys = (await storageProcessed.keys()).filter((key) =>
+    key.startsWith("processedPost-")
+  );
+
+  let postsToEmbed: { id: number; content: string; when: number }[] = [];
+  for (const postKey of postKeys) {
+    const id = parseInt(postKey.split("-")[1]);
+    if (await storageEmbeddings.getItem(`embedding-${id}`)) {
+      console.log(`Post ${id} already embedded`);
+      continue;
+    }
+    const post: { cleanedPost: string; when: number } =
+      await storageProcessed.getItem(postKey);
+
+    postsToEmbed.push({
+      id,
+      content: nhm.translate(post.cleanedPost),
+      when: post.when,
+    });
+  }
+  postsToEmbed = postsToEmbed.slice(0, 70); // Remove later.
+
+  // Call OpenAI API in batches.
+  const BATCH_SIZE = 50;
+  const batches: string[][] = [];
+  for (let i = 0; i < postsToEmbed.length; i += BATCH_SIZE) {
+    batches.push(
+      postsToEmbed.slice(i, i + BATCH_SIZE).map((post) => post.content)
+    );
+  }
+
+  console.log("Starting embedding...");
+
+  let offset = 0;
+  for (const batch of batches) {
+    const res = await openai.createEmbedding({
+      model: "text-embedding-ada-002",
+      input: batch,
+    });
+
+    const { data } = res.data;
+
+    for (const entry of data) {
+      const post = postsToEmbed[entry.index + offset];
+      await storageEmbeddings.setItem(`embedding-${post.id}`, {
+        ...post,
+        embedding: entry.embedding,
+      });
+    }
+
+    offset += batch.length;
+    console.log(`${offset}/${postsToEmbed.length} embedded`);
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // break; // Rm after done testing.
+  }
+};
+
+const search = async (
+  query: string,
+  storageEmbeddings: storage.LocalStorage
+) => {
+  const res = await openai.createEmbedding({
+    model: "text-embedding-ada-002",
+    input: [query],
+  });
+
+  const { data } = res.data;
+  const queryEmbedding = data[0].embedding;
+
+  const posts: { id: number; content: string; embedding: number[] }[] =
+    await storageEmbeddings.values();
+  const result = posts
+    .map((post) => ({
+      id: post.id,
+      content: post.content,
+      similarity: similarity(queryEmbedding, post.embedding),
+    }))
+    .sort((a, b) => b.similarity - a.similarity);
+
+  console.log(result.slice(0, 5));
+};
+
 (async () => {
   const storageProcessed = storage.create({ dir: "storage-processed" });
   const storageRaw = storage.create({ dir: "storage-raw" });
+  const storageEmbeddings = storage.create({ dir: "storage-embeddings" });
   // await scrapeSearchPages();
   // await scrapePostFromPages();
   // await checkPostsHTMLTokens();
@@ -253,5 +351,8 @@ const moveProcessedData = async (
   // await processPosts();
   // await convertProcessedPostsToMarkdown();
   // await checkPostsHTMLTokens();
-  moveProcessedData(storageRaw, storageProcessed);
+  // moveProcessedData(storageRaw, storageProcessed);
+
+  // await getEmbeddings(storageProcessed, storageEmbeddings);
+  search("Distilled water storage vs agar slants", storageEmbeddings);
 })();
