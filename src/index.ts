@@ -20,7 +20,7 @@ const nhm = new NodeHtmlMarkdown({
   useInlineLinks: false,
 });
 
-const scrapeSearchPages = async () => {
+const scrapeSearchPages = async (storageRaw: storage.LocalStorage) => {
   const MAX_SEARCH_PAGES = 331;
   const SEARCH_RESULTS_LIMIT = 100;
 
@@ -53,8 +53,8 @@ const scrapeSearchPages = async () => {
   }
 };
 
-const scrapePostFromPages = async () => {
-  const pageKeys = (await storage.keys())
+const scrapePostFromPages = async (storageRaw: storage.LocalStorage) => {
+  const pageKeys = (await storageRaw.keys())
     .filter((key) => key.startsWith("page-"))
     .sort((a, b) => {
       const pageA = parseInt(a.split("-")[1]);
@@ -66,18 +66,7 @@ const scrapePostFromPages = async () => {
   for (const pageKey of pageKeys) {
     numPagesProcessed++;
     try {
-      const page: string = await storage.getItem(pageKey);
-      // const dom = htmlparser2.parseDocument(page);
-      // const postLinks = CSSselect("a[href^='showflat.php']", dom.childNodes);
-      // const root = parse(page);
-      // console.log(root.querySelectorAll(".forumtr").length);
-      // console.log(root.querySelector("body"));
-
-      // const postIds = root
-      //   .querySelectorAll(".forumtr")
-      //   .map((el) => el.id.slice(1));
-      // console.log(pageKey);
-      //
+      const page: string = await storageRaw.getItem(pageKey);
 
       const $ = load(page);
       const postIds = $("body")
@@ -94,7 +83,7 @@ const scrapePostFromPages = async () => {
         numPostsProcessed++;
         try {
           const postKey = `post-${postId}`;
-          const storedPost = await storage.getItem(postKey);
+          const storedPost = await storageRaw.getItem(postKey);
           if (storedPost) {
             console.log(`Post ${postId} already exists`);
             continue;
@@ -110,7 +99,7 @@ const scrapePostFromPages = async () => {
             continue;
           }
 
-          await storage.setItem(postKey, data);
+          await storageRaw.setItem(postKey, data);
           console.log(
             `[${numPostsProcessed}/${postIds.length}] Post ${postId} saved`
           );
@@ -130,36 +119,15 @@ const scrapePostFromPages = async () => {
   }
 };
 
-const checkPostsHTMLTokens = async () => {
-  console.log("Retrieving...");
+const convertProcessedPostsToMarkdown = async (
+  storageProcessed: storage.LocalStorage
+) => {
+  console.log("Loading...");
+  await storageProcessed.init();
   const postKeys = (await storage.keys()).filter((key) =>
     key.startsWith("processedPost-")
   );
-  console.log("Retrieved.");
-
-  let maxTokens = 0;
-  let postWithMaxTokens = "";
-  let numTokens = 0;
-  for (const postKey of postKeys) {
-    const post: any = await storage.getItem(postKey);
-    const encoded = encode(post.cleanedPost);
-    numTokens += encoded.length;
-    if (encoded.length > maxTokens) {
-      maxTokens = encoded.length;
-      postWithMaxTokens = postKey;
-    }
-  }
-  console.log("numTokens", numTokens);
-  console.log("maxTokens", maxTokens);
-  console.log("postWithMaxTokens", postWithMaxTokens);
-};
-
-const convertProcessedPostsToMarkdown = async () => {
-  console.log("Retrieving...");
-  const postKeys = (await storage.keys()).filter((key) =>
-    key.startsWith("processedPost-")
-  );
-  console.log("Retrieved.");
+  console.log("Loaded.");
 
   let maxTokens = 0;
   let postWithMaxTokens = "";
@@ -182,16 +150,19 @@ const convertProcessedPostsToMarkdown = async () => {
   console.log("postWithMaxTokens", postWithMaxTokens);
 };
 
-const viewPost = async (postId: string) => {
+const viewPost = async (postId: string, storageRaw: storage.LocalStorage) => {
   const postKey = `post-${postId}`;
-  const post: string = await storage.getItem(postKey);
+  const post: string = await storageRaw.getItem(postKey);
   const $ = load(post, { xmlMode: true });
   const postContent = $("content").text();
   console.log(postContent);
 };
 
-const processPosts = async () => {
-  const postKeys = (await storage.keys()).filter((key) =>
+const processPosts = async (
+  storageRaw: storage.LocalStorage,
+  storageProcessed: storage.LocalStorage
+) => {
+  const postKeys = (await storageRaw.keys()).filter((key) =>
     key.startsWith("post-")
   );
   // const postKeys = ["post-9570484"];
@@ -199,7 +170,7 @@ const processPosts = async () => {
   // const postKeys = ["post-9923861"]; // Nested blockquotes
 
   for (const postKey of postKeys) {
-    const post: string = await storage.getItem(postKey);
+    const post: string = await storageRaw.getItem(postKey);
     const id = postKey.split("-")[1];
     const $ = load(post, { xmlMode: true });
     const rawContent = $("content").text();
@@ -229,11 +200,12 @@ const processPosts = async () => {
     };
     postJson.cleanedPost = cleanedPost;
 
-    await storage.setItem(`processedPost-${id}`, postJson);
+    await storageProcessed.setItem(`processedPost-${id}`, postJson);
     console.log(`Post ${id} processed`);
   }
 };
 
+// Move processed data from storageRaw to storageProcessed.
 const moveProcessedData = async (
   storageRaw: storage.LocalStorage,
   storageProcessed: storage.LocalStorage
@@ -353,13 +325,11 @@ const search = async (
   const storageProcessed = storage.create({ dir: "storage-processed" });
   const storageRaw = storage.create({ dir: "storage-raw" });
   const storageEmbeddings = storage.create({ dir: "storage-embeddings" });
-  // await scrapeSearchPages();
-  // await scrapePostFromPages();
-  // await checkPostsHTMLTokens();
-  // await viewPost("9570484");
-  // await processPosts();
-  // await convertProcessedPostsToMarkdown();
-  // await checkPostsHTMLTokens();
+  // await scrapeSearchPages(storageRaw);
+  // await scrapePostFromPages(storageRaw);
+  // await viewPost("9570484", storageRaw);
+  // await processPosts(storageRaw, storageProcessed);
+  // await convertProcessedPostsToMarkdown(storageProcessed);
   // moveProcessedData(storageRaw, storageProcessed);
 
   await getEmbeddings(storageProcessed, storageEmbeddings);
