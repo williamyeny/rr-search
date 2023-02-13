@@ -2,6 +2,12 @@ import got from "got";
 import storage from "node-persist";
 import { load } from "cheerio";
 import { encode } from "gpt-3-encoder";
+import { NodeHtmlMarkdown } from "node-html-markdown";
+
+const nhm = new NodeHtmlMarkdown({
+  maxConsecutiveNewlines: 2,
+  useInlineLinks: false,
+});
 
 const MAX_SEARCH_PAGES = 331;
 const SEARCH_RESULTS_LIMIT = 100;
@@ -115,20 +121,56 @@ const scrapePostFromPages = async () => {
   }
 };
 
-const convertPostsToText = async () => {
+const checkPostsHTMLTokens = async () => {
+  console.log("Retrieving...");
   const postKeys = (await storage.keys()).filter((key) =>
-    key.startsWith("post-")
+    key.startsWith("processedPost-")
   );
+  console.log("Retrieved.");
 
+  let maxTokens = 0;
+  let postWithMaxTokens = "";
   let numTokens = 0;
   for (const postKey of postKeys) {
-    const post: string = await storage.getItem(postKey);
-    const $ = load(post, { xmlMode: true });
-    const postContent = $("content").text();
-    const encoded = encode(postContent);
+    const post: any = await storage.getItem(postKey);
+    const encoded = encode(post.cleanedPost);
+    numTokens += encoded.length;
+    if (encoded.length > maxTokens) {
+      maxTokens = encoded.length;
+      postWithMaxTokens = postKey;
+    }
+  }
+  console.log("numTokens", numTokens);
+  console.log("maxTokens", maxTokens);
+  console.log("postWithMaxTokens", postWithMaxTokens);
+};
+
+const convertProcessedPostsToMarkdown = async () => {
+  console.log("Retrieving...");
+  const postKeys = (await storage.keys()).filter((key) =>
+    key.startsWith("processedPost-")
+  );
+  console.log("Retrieved.");
+
+  let maxTokens = 0;
+  let postWithMaxTokens = "";
+  let numTokens = 0;
+  for (const postKey of postKeys) {
+    const post: { id: number; cleanedPost: string } = await storage.getItem(
+      postKey
+    );
+    const cleanedPost = post.cleanedPost;
+    const cleanedPostMarkdown = nhm.translate(cleanedPost);
+    const encoded = encode(cleanedPostMarkdown);
+    if (encoded.length > maxTokens) {
+      maxTokens = encoded.length;
+      postWithMaxTokens = postKey;
+    }
     numTokens += encoded.length;
   }
   console.log("numTokens", numTokens);
+  console.log("maxTokens", maxTokens);
+  console.log("postWithMaxTokens", postWithMaxTokens);
 };
 
 const viewPost = async (postId: string) => {
@@ -183,11 +225,33 @@ const processPosts = async () => {
   }
 };
 
+const moveProcessedData = async (
+  storageRaw: storage.LocalStorage,
+  storageProcessed: storage.LocalStorage
+) => {
+  await Promise.all([storageRaw.init(), storageProcessed.init()]);
+
+  const postKeys = (await storageRaw.keys()).filter((key) =>
+    key.startsWith("processedPost-")
+  );
+  let i = 0;
+  for (const postKey of postKeys) {
+    const post: any = await storageRaw.getItem(postKey);
+    storageProcessed.setItem(postKey, post);
+    storageRaw.removeItem(postKey);
+    console.log(`${++i}/${postKeys.length}`);
+  }
+};
+
 (async () => {
-  await storage.init({ dir: "storage" });
+  const storageProcessed = storage.create({ dir: "storage-processed" });
+  const storageRaw = storage.create({ dir: "storage-raw" });
   // await scrapeSearchPages();
   // await scrapePostFromPages();
-  // await convertPostsToText();
+  // await checkPostsHTMLTokens();
   // await viewPost("9570484");
-  await processPosts();
+  // await processPosts();
+  // await convertProcessedPostsToMarkdown();
+  // await checkPostsHTMLTokens();
+  moveProcessedData(storageRaw, storageProcessed);
 })();
