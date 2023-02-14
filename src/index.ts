@@ -406,21 +406,43 @@ const sendEmbeddingsToPinecone = async (
   const posts: (Post & { embedding: number[] })[] =
     await storageEmbeddings.values();
 
-  const vectors = posts.map((post) => ({
-    id: post.id.toString(),
-    metadata: {
-      title: post.title,
-      when: post.when,
-      utime: post.utime,
-      first: post.first,
-      last: post.last,
-      content: post.content,
-      poster: "RogerRabbit",
-    },
-    values: post.embedding,
-  }));
+  const vectors = posts
+    .map((post) => ({
+      id: post.id.toString(),
+      metadata: {
+        title: post.title,
+        when: post.when,
+        utime: post.utime,
+        first: post.first,
+        last: post.last,
+        content: post.content,
+        poster: "RogerRabbit",
+      },
+      values: post.embedding,
+    }))
+    .map((post) => {
+      // Pinecone has a 10KB metadata limit per vector.
+      if (Buffer.from(JSON.stringify(post.metadata)).length > 10240) {
+        console.log(`Removing content in ${post.id} due to metadata size`);
+        return {
+          ...post,
+          metadata: {
+            ...post.metadata,
+            content: "",
+            removedContent: true,
+          },
+        };
+      }
+      return post;
+    })
+    .filter((post) => post.metadata.content === "");
 
-  // Pinecone has a 100 vector limit per batch.
+  console.log(vectors.length);
+  if (vectors.length !== 1) {
+    return;
+  }
+
+  const failedPineconeUpserts: string[] = [];
   const VECTOR_BATCH_SIZE = 100;
   for (let i = 0; i < vectors.length; i += VECTOR_BATCH_SIZE) {
     const output = {
@@ -428,16 +450,30 @@ const sendEmbeddingsToPinecone = async (
       namespace: "rr-posts",
     };
 
-    await got
-      .post(`https://${getEnvVar("PINECONE_INDEX_URL")}/vectors/upsert`, {
-        json: output,
-        headers: {
-          "Api-Key": getEnvVar("PINECONE_API_KEY"),
-        },
-      })
-      .json();
-    console.log(`Upserted ${i + VECTOR_BATCH_SIZE}/${vectors.length} vectors`);
+    try {
+      await got
+        .post(`https://${getEnvVar("PINECONE_INDEX_URL")}/vectors/upsert`, {
+          json: output,
+          headers: {
+            "Api-Key": getEnvVar("PINECONE_API_KEY"),
+          },
+        })
+        .json();
+    } catch (e) {
+      failedPineconeUpserts.push(`${i}-${i + output.vectors.length}`);
+      console.error(e);
+    }
+    console.log(
+      `Upserted ${i + output.vectors.length}/${vectors.length} vectors`
+    );
     await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  if (failedPineconeUpserts.length > 0) {
+    console.log(
+      `Failed to upsert in ${
+        failedPineconeUpserts.length
+      } requests: ${failedPineconeUpserts.join(", ")}`
+    );
   }
 };
 
