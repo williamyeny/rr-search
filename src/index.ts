@@ -20,6 +20,16 @@ const nhm = new NodeHtmlMarkdown({
   useInlineLinks: false,
 });
 
+type Post = {
+  id: number;
+  title: string;
+  first: number;
+  last: number;
+  when: number;
+  utime: string;
+  content: string;
+};
+
 const scrapeSearchPages = async (storageRaw: storage.LocalStorage) => {
   const MAX_SEARCH_PAGES = 331;
   const SEARCH_RESULTS_LIMIT = 100;
@@ -180,9 +190,7 @@ const processPosts = async (
   // const postKeys = ["post-9923861"]; // Nested blockquotes
 
   for (const postKey of postKeys) {
-    const post: Record<string, string | number> = await storageRaw.getItem(
-      postKey
-    );
+    const post: Post = await storageRaw.getItem(postKey);
     const content = post.content as string;
 
     const cleanedContent = content
@@ -238,7 +246,7 @@ const getEmbeddings = async (
     key.startsWith("processedPost-")
   );
 
-  let postsToEmbed: { id: number; content: string; when: number }[] = [];
+  let postsToEmbed: Post[] = [];
   let skipped = 0;
   for (const postKey of postKeys) {
     const id = parseInt(postKey.split("-")[1]);
@@ -246,24 +254,23 @@ const getEmbeddings = async (
       skipped++;
       continue;
     }
-    const post: { content: string; when: number } =
-      await storageProcessed.getItem(postKey);
+    const post: Post = await storageProcessed.getItem(postKey);
 
-    postsToEmbed.push({
-      id,
-      content: nhm.translate(post.content),
-      when: post.when,
-    });
+    postsToEmbed.push(post);
   }
-  console.log(`Skipped ${skipped} posts; already embedded.`);
-  postsToEmbed = postsToEmbed.slice(0, 4000); // Remove later.
+  if (skipped) {
+    console.log(`Skipped ${skipped} posts; already embedded.`);
+  }
+  // postsToEmbed = postsToEmbed.slice(0, 5); // Remove later.
 
   // Call OpenAI API in batches.
-  const BATCH_SIZE = 200;
-  const batches: string[][] = [];
+  const BATCH_SIZE = 100;
+  const inputBatches: string[][] = [];
   for (let i = 0; i < postsToEmbed.length; i += BATCH_SIZE) {
-    batches.push(
-      postsToEmbed.slice(i, i + BATCH_SIZE).map((post) => post.content)
+    inputBatches.push(
+      postsToEmbed
+        .slice(i, i + BATCH_SIZE)
+        .map((post) => nhm.translate(`<h1>${post.title}</h1>` + post.content))
     );
   }
 
@@ -271,10 +278,10 @@ const getEmbeddings = async (
 
   let offset = 0;
   let totalTokensUsed = 0;
-  for (const batch of batches) {
+  for (const input of inputBatches) {
     const res = await openai.createEmbedding({
       model: "text-embedding-ada-002",
-      input: batch,
+      input,
     });
 
     const { data, usage } = res.data;
@@ -288,7 +295,7 @@ const getEmbeddings = async (
       });
     }
 
-    offset += batch.length;
+    offset += input.length;
     console.log(`${offset}/${postsToEmbed.length} embedded`);
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -344,8 +351,9 @@ const addTitle = async (
       .get();
 
     for (const { id, title } of postInfo) {
-      const post: Record<string, string | number> | undefined =
-        await storageProcessed.getItem(`processedPost-${id}`);
+      const post:
+        | (Omit<Post, "content"> & { cleanedPost: string })
+        | undefined = await storageProcessed.getItem(`processedPost-${id}`);
       if (post) {
         const { cleanedPost, ...rest } = post;
         await storageProcessed.setItem(`processedPost-${id}`, {
@@ -372,8 +380,8 @@ const addTitle = async (
   // await processPosts(storageRaw, storageProcessed);
   // await convertProcessedPostsToMarkdown(storageProcessed);
   // moveProcessedData(storageRaw, storageProcessed);
-  await addTitle(storageRaw, storageProcessed);
+  // await addTitle(storageRaw, storageProcessed);
 
-  // await getEmbeddings(storageProcessed, storageEmbeddings);
-  // search("Easiest way to get started for a beginner", storageEmbeddings);
+  await getEmbeddings(storageProcessed, storageEmbeddings);
+  // search("how to prevent contamination?", storageEmbeddings);
 })();
