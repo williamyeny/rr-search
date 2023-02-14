@@ -4,14 +4,12 @@ import { load } from "cheerio";
 import { encode } from "gpt-3-encoder";
 import { NodeHtmlMarkdown } from "node-html-markdown";
 import { Configuration, OpenAIApi } from "openai";
-import * as dotenv from "dotenv";
 import similarity from "compute-cosine-similarity";
-
-dotenv.config();
+import { getEnvVar } from "./utils.js";
 
 const openai = new OpenAIApi(
   new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: getEnvVar("OPENAI_API_KEY"),
   })
 );
 
@@ -31,7 +29,7 @@ type Post = {
 };
 
 const scrapeSearchPages = async (storageRaw: storage.LocalStorage) => {
-  const MAX_SEARCH_PAGES = 331;
+  const MAX_SEARCH_PAGES = 331; // This should be scraped, not hard-coded.
   const SEARCH_RESULTS_LIMIT = 100;
 
   for (let i = 0; i < MAX_SEARCH_PAGES; i++) {
@@ -57,8 +55,8 @@ const scrapeSearchPages = async (storageRaw: storage.LocalStorage) => {
     await storage.setItem(pageKey, data);
     console.log(`Page ${i} saved`);
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, Math.random() * 3000 + 3000)
+    await new Promise(
+      (resolve) => setTimeout(resolve, Math.random() * 3000 + 3000) // Since we're loading HTML pages, give it extra delay.
     );
   }
 };
@@ -308,17 +306,17 @@ const getEmbeddings = async (
   );
 };
 
-const search = async (
+const searchLocally = async (
   query: string,
   storageEmbeddings: storage.LocalStorage
 ) => {
+  await storageEmbeddings.init();
   const res = await openai.createEmbedding({
     model: "text-embedding-ada-002",
     input: [query],
   });
 
-  const { data } = res.data;
-  const queryEmbedding = data[0].embedding;
+  const queryEmbedding = res.data.data[0].embedding;
 
   const posts: { id: number; content: string; embedding: number[] }[] =
     await storageEmbeddings.values();
@@ -333,7 +331,38 @@ const search = async (
   console.log(result.slice(0, 5));
 };
 
-// Whoops.
+const searchPinecone = async (query: string) => {
+  const embeddingRes = await openai.createEmbedding({
+    model: "text-embedding-ada-002",
+    input: [query],
+  });
+
+  const queryEmbedding = embeddingRes.data.data[0].embedding;
+
+  type PineconeResults = {
+    matches: { id: string; score: number; metadata: Record<string, unknown> }[];
+    namespace: string;
+  };
+
+  const { matches } = await got
+    .post(`https://${getEnvVar("PINECONE_INDEX_URL")}/query`, {
+      json: {
+        namespace: "rr-posts",
+        topK: 20,
+        includeMetadata: true,
+        includeValues: false,
+        vector: queryEmbedding,
+      },
+      headers: {
+        "Api-Key": getEnvVar("PINECONE_API_KEY"),
+      },
+    })
+    .json<PineconeResults>();
+
+  console.log(matches);
+};
+
+// Whoops... forgot to add the title to the processed posts.
 const addTitle = async (
   storageRaw: storage.LocalStorage,
   storageProcessed: storage.LocalStorage
@@ -370,10 +399,52 @@ const addTitle = async (
   }
 };
 
+const sendEmbeddingsToPinecone = async (
+  storageEmbeddings: storage.LocalStorage
+) => {
+  await storageEmbeddings.init();
+  const posts: (Post & { embedding: number[] })[] =
+    await storageEmbeddings.values();
+
+  const vectors = posts.map((post) => ({
+    id: post.id.toString(),
+    metadata: {
+      title: post.title,
+      when: post.when,
+      utime: post.utime,
+      first: post.first,
+      last: post.last,
+      content: post.content,
+      poster: "RogerRabbit",
+    },
+    values: post.embedding,
+  }));
+
+  // Pinecone has a 100 vector limit per batch.
+  const VECTOR_BATCH_SIZE = 100;
+  for (let i = 0; i < vectors.length; i += VECTOR_BATCH_SIZE) {
+    const output = {
+      vectors: vectors.slice(i, i + VECTOR_BATCH_SIZE),
+      namespace: "rr-posts",
+    };
+
+    await got
+      .post(`https://${getEnvVar("PINECONE_INDEX_URL")}/vectors/upsert`, {
+        json: output,
+        headers: {
+          "Api-Key": getEnvVar("PINECONE_API_KEY"),
+        },
+      })
+      .json();
+    console.log(`Upserted ${i + VECTOR_BATCH_SIZE}/${vectors.length} vectors`);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+};
+
 (async () => {
-  const storageProcessed = storage.create({ dir: "storage-processed" });
-  const storageRaw = storage.create({ dir: "storage-raw" });
-  const storageEmbeddings = storage.create({ dir: "storage-embeddings" });
+  const storageProcessed = storage.create({ dir: "storage/processed" });
+  const storageRaw = storage.create({ dir: "storage/raw" });
+  const storageEmbeddings = storage.create({ dir: "storage/embeddings" });
   // await scrapeSearchPages(storageRaw);
   // await scrapePostFromPages(storageRaw);
   // await viewPost("9570484", storageRaw);
@@ -382,6 +453,10 @@ const addTitle = async (
   // moveProcessedData(storageRaw, storageProcessed);
   // await addTitle(storageRaw, storageProcessed);
 
-  await getEmbeddings(storageProcessed, storageEmbeddings);
+  // await getEmbeddings(storageProcessed, storageEmbeddings);
   // search("how to prevent contamination?", storageEmbeddings);
+
+  sendEmbeddingsToPinecone(storageEmbeddings);
+
+  // searchPinecone("Using lime in substrate");
 })();

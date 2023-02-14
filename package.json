@@ -2,7 +2,7 @@
   "name": "shroomery-scrape",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "exports": "./src/index.js",
   "scripts": {
     "start": "ts-node src/index.ts"
   },
