@@ -4,7 +4,7 @@ import { load } from "cheerio";
 import { encode } from "gpt-3-encoder";
 import { NodeHtmlMarkdown } from "node-html-markdown";
 import { Configuration, OpenAIApi } from "openai";
-import similarity from "compute-cosine-similarity";
+import { similarity } from "ml-distance";
 import { getEnvVar } from "./utils.js";
 
 const openai = new OpenAIApi(
@@ -324,7 +324,7 @@ const searchLocally = async (
     .map((post) => ({
       id: post.id,
       content: post.content,
-      similarity: similarity(queryEmbedding, post.embedding),
+      similarity: similarity.cosine(queryEmbedding, post.embedding),
     }))
     .sort((a, b) => b.similarity - a.similarity);
 
@@ -492,7 +492,7 @@ const sendEmbeddingsToPinecone = async (
   // await getEmbeddings(storageProcessed, storageEmbeddings);
   // search("how to prevent contamination?", storageEmbeddings);
 
-  sendEmbeddingsToPinecone(storageEmbeddings);
+  // sendEmbeddingsToPinecone(storageEmbeddings);
 
-  // searchPinecone("Using lime in substrate");
+  searchPinecone("Storing dried mushrooms long-term");
 })();
