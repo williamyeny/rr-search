@@ -4,15 +4,15 @@ import {
   Container,
   Flex,
   Heading,
-  Input,
   VStack,
   Text,
   HStack,
 } from "@chakra-ui/react";
-import { SearchIcon, ChevronRightIcon } from "@chakra-ui/icons";
+import { ChevronRightIcon } from "@chakra-ui/icons";
 import { useState } from "react";
 import Link from "next/link";
 import { SearchBar } from "@/components/SearchBar";
+import { useRouter } from "next/router";
 
 const EXAMPLE_QUERIES = [
   "Preventing bacterial contamination",
@@ -28,6 +28,8 @@ const EXAMPLE_QUERIES = [
 
 export default function Home() {
   const [query, setQuery] = useState("");
+  const router = useRouter();
+
   return (
     <Container>
       <Flex direction="column" justifyContent="space-between" height="100vh">
@@ -41,7 +43,13 @@ export default function Home() {
             </Text>
           </VStack>
           <Box pb={8} w="100%">
-            <SearchBar query={query} setQuery={setQuery} />
+            <SearchBar
+              query={query}
+              setQuery={setQuery}
+              onSearch={() =>
+                router.push(`/search?query=${encodeURIComponent(query)}`)
+              }
+            />
           </Box>
           <Box width="100%">
             <Text color="gray.600">

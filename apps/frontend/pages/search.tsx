@@ -1,44 +1,83 @@
 import { SearchBar } from "@/components/SearchBar";
-import { Box, Container } from "@chakra-ui/react";
+import { Box, Container, Heading, VStack, Text } from "@chakra-ui/react";
 import { useRouter } from "next/router";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PineconeResults, Post } from "types";
+import { NodeHtmlMarkdown } from "node-html-markdown";
+import ReactMarkdown from "react-markdown";
+import ky from "ky";
+
+const nhm = new NodeHtmlMarkdown({
+  maxConsecutiveNewlines: 2,
+  useInlineLinks: false,
+});
 
 export default function Search() {
   const router = useRouter();
-  const { query } = router.query;
-  const isInvalidQuery = !query || Array.isArray(query);
 
-  useLayoutEffect(() => {
-    if (isInvalidQuery) {
-      router.push("/");
+  const [query, setQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [posts, setPosts] = useState<({ score: number } & Post)[]>([]);
+
+  const search = useCallback(async (query: string) => {
+    setIsLoading(true);
+    try {
+      const results = await ky(
+        `/api/search?query=${encodeURIComponent(query)}`
+      ).json<PineconeResults>();
+      setPosts(
+        results.matches.map(({ metadata, ...rest }) => ({
+          ...rest,
+          ...metadata,
+          content: nhm.translate(metadata.content), // This should be done at scrape-time.
+        }))
+      );
+    } finally {
+      setIsLoading(false);
     }
-  }, [query]);
-
-  if (isInvalidQuery) {
-    return null;
-  }
-
-  const [newQuery, setNewQuery] = useState(query ?? "");
-  const [posts, setPosts] = useState<unknown>();
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
-      const json: PineconeResults = await res.json();
-      setPosts(json.matches);
-    })();
-  }, []);
+    if (router.isReady) {
+      const passedInQuery = router.query.query;
+      if (passedInQuery && !Array.isArray(passedInQuery)) {
+        search(passedInQuery);
+        setQuery(passedInQuery);
+      } else {
+        console.log("redirecting out");
+        router.push("/");
+      }
+    }
+  }, [router]);
 
   return (
     <Box>
       <Box w="100%" mt={8} position="fixed">
         <Container>
-          <SearchBar query={newQuery} setQuery={setNewQuery} />
+          <SearchBar
+            query={query}
+            setQuery={setQuery}
+            onSearch={() => search(query)}
+          />
         </Container>
       </Box>
-      <Container>
-        <Box pt={24}>{JSON.stringify(posts)}</Box>
+      <Container py={24}>
+        <VStack gap={4} opacity={isLoading ? 0 : 1}>
+          {posts.map((post) => (
+            <Box key={post.id} w="100%">
+              <Heading size="md" fontWeight="normal" mb={2}>
+                {post.title}
+              </Heading>
+              <Box color="gray.600" className="markdown">
+                <ReactMarkdown>{post.content}</ReactMarkdown>
+              </Box>
+              <Text color="gray.600" fontSize="sm">
+                ID: {post.id} | Score: {post.score}
+              </Text>
+            </Box>
+          ))}
+        </VStack>
       </Container>
     </Box>
   );

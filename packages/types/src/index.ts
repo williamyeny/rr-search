@@ -10,6 +10,6 @@ export type Post = {
 };
 
 export type PineconeResults = {
-  matches: { id: string; score: number; metadata: Record<string, unknown> }[];
+  matches: { id: string; score: number; metadata: Post }[];
   namespace: string;
 };

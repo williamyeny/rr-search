@@ -4,6 +4,12 @@ import { Configuration, OpenAIApi } from "openai";
 import got from "got";
 import { PineconeResults } from "@/../../packages/types/src";
 
+const openai = new OpenAIApi(
+  new Configuration({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+);
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<PineconeResults>
@@ -14,11 +20,7 @@ export default async function handler(
     return;
   }
 
-  const openai = new OpenAIApi(
-    new Configuration({
-      apiKey: process.env.OPENAI_API_KEY,
-    })
-  );
+  // TODO: handle errors such as query too long.
   const embeddingRes = await openai.createEmbedding({
     model: "text-embedding-ada-002",
     input: [query],
