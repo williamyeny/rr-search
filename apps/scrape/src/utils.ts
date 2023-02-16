@@ -1,6 +1,3 @@
-import * as dotenv from "dotenv";
-dotenv.config();
-
 const ENV_VARS = [
   "OPENAI_API_KEY",
   "PINECONE_API_KEY",
