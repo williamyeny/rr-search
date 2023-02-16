@@ -32,6 +32,4 @@ yarn-error.log*
 # turbo
 .turbo
 
-apps/scrape/storage/
-
 .env

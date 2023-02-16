@@ -108,7 +108,7 @@ const scrapePostFromPages = async (storageRaw: storage.LocalStorage) => {
           }
 
           const $ = load(data, { xmlMode: true });
-          const postJson = {
+          const postJson: Post = {
             id: parseInt($("id").text()),
             title,
             first: parseInt($("first").text()),
@@ -180,39 +180,56 @@ const processPosts = async (
   storageRaw: storage.LocalStorage,
   storageProcessed: storage.LocalStorage
 ) => {
-  const postKeys = (await storageRaw.keys()).filter((key) =>
-    key.startsWith("post-")
+  await Promise.all([storageRaw.init(), storageProcessed.init()]);
+  const pageKeys = (await storageRaw.keys()).filter((key) =>
+    key.startsWith("page-")
   );
-  // const postKeys = ["post-9570484"];
-  // const postKeys = ["post-15218375"]; // Two sibling blockquotes
-  // const postKeys = ["post-9923861"]; // Nested blockquotes
 
-  for (const postKey of postKeys) {
-    const post: Post = await storageRaw.getItem(postKey);
-    const content = post.content as string;
+  for (const pageKey of pageKeys) {
+    const page: string = await storageRaw.getItem(pageKey);
+    const $ = load(page);
+    const postInfo = $("body")
+      .find(".pp")
+      .map((_, el) => ({ id: el.attribs.id.slice(1), title: $(el).text() }))
+      .get();
 
-    const cleanedContent = content
-      // Get rid of all font tags.
-      .replace(/<\/?font.*?>/g, "")
-      // Get rid of more than one br.
-      .replace(/(<br \/>){2,}/g, "<br />")
-      // Remove "<hr />" at the beginning of the blockquote
-      .replace(/<blockquote>Quote:<hr \/><br \/>/g, "<blockquote>Quote:<br />")
-      // Remove "<hr /> and <br />" at the end of the blockquote
-      .replace(/<br \/><hr \/>(<\/blockquote>)?/g, "$1")
-      // Bold tags around "<b><i>[user] said:</i></b>" (within the blockquote)
-      .replace(
-        /<blockquote>Quote:(.*?)<b><i>(.*?) said:<\/i><\/b>(.*?)<\/blockquote>/g,
-        "<blockquote>Quote:<br /><strong>$2 said:</strong>$3</blockquote>"
-      );
+    for (const { id, title } of postInfo) {
+      const postKey = `post-${id}`;
+      const post: string | undefined = await storageRaw.getItem(postKey);
+      if (!post) {
+        console.log(`Post ${id} not found`);
+        continue;
+      }
+      const $ = load(post, { xmlMode: true });
+      const content = $("content").text();
+      const cleanedContent = content
+        // Get rid of all font tags.
+        .replace(/<\/?font.*?>/g, "")
+        // Remove "<hr />" at the beginning of the blockquote
+        .replace(
+          /<blockquote>Quote:<hr \/><br \/>/g,
+          "<blockquote>Quote:<br />"
+        )
+        // Remove "<hr /> and <br />" at the end of the blockquote
+        .replace(/<br \/><hr \/>(<\/blockquote>)?/g, "$1")
+        // Bold tags around "<b><i>[user] said:</i></b>" (within the blockquote)
+        .replace(
+          /<blockquote>Quote:(.*?)<b><i>(.*?) said:<\/i><\/b>(.*?)<\/blockquote>/g,
+          "<blockquote>Quote:<br /><b>$2 said:</b>$3</blockquote>"
+        );
 
-    const postJson = {
-      ...post,
-      content: cleanedContent,
-    };
+      const postJson = {
+        id: parseInt($("id").text()),
+        first: parseInt($("first").text()),
+        last: parseInt($("last").text()),
+        when: parseInt($("when").text()),
+        utime: $("utime").text(),
+        content: cleanedContent,
+        title,
+      };
 
-    await storageProcessed.setItem(`processedPost-${post.id}`, postJson);
-    console.log(`Post ${post.id} processed`);
+      await storageProcessed.setItem(`processedPost-${postJson.id}`, postJson);
+    }
   }
 };
 
@@ -484,7 +501,7 @@ const sendEmbeddingsToPinecone = async (
   // await scrapeSearchPages(storageRaw);
   // await scrapePostFromPages(storageRaw);
   // await viewPost("9570484", storageRaw);
-  // await processPosts(storageRaw, storageProcessed);
+  await processPosts(storageRaw, storageProcessed);
   // await convertProcessedPostsToMarkdown(storageProcessed);
   // moveProcessedData(storageRaw, storageProcessed);
   // await addTitle(storageRaw, storageProcessed);
@@ -494,5 +511,5 @@ const sendEmbeddingsToPinecone = async (
 
   // sendEmbeddingsToPinecone(storageEmbeddings);
 
-  searchPinecone("Storing dried mushrooms long-term");
+  // searchPinecone("Storing dried mushrooms long-term");
 })();
