@@ -7,7 +7,10 @@ import { PineconeResults, Post } from "types";
 export default function Search() {
   const router = useRouter();
   const { query } = router.query;
-  if (!query || Array.isArray(query)) return null;
+  if (!query || Array.isArray(query)) {
+    router.push("/");
+    return null;
+  }
 
   const [newQuery, setNewQuery] = useState(query ?? "");
   const [posts, setPosts] = useState<unknown>();
