@@ -2,7 +2,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { Box, Container } from "@chakra-ui/react";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
-import { Post } from "types";
+import { PineconeResults, Post } from "types";
 
 export default function Search() {
   const router = useRouter();
@@ -10,23 +10,26 @@ export default function Search() {
   if (!query || Array.isArray(query)) return null;
 
   const [newQuery, setNewQuery] = useState(query ?? "");
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<unknown>();
 
-  const [data, setData] = useState("");
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/hello");
-      const json = await res.json();
-      setData(json.name);
+      const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+      const json: PineconeResults = await res.json();
+      setPosts(json.matches);
     })();
   }, []);
 
   return (
-    <Container>
-      <Box w="100%" mt={8}>
-        <SearchBar query={newQuery} setQuery={setNewQuery} />
+    <Box>
+      <Box w="100%" mt={8} position="fixed">
+        <Container>
+          <SearchBar query={newQuery} setQuery={setNewQuery} />
+        </Container>
       </Box>
-      {data}
-    </Container>
+      <Container>
+        <Box pt={24}>{JSON.stringify(posts)}</Box>
+      </Container>
+    </Box>
   );
 }

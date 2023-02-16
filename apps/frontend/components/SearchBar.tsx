@@ -15,6 +15,7 @@ export const SearchBar = ({
       borderRadius={50}
       value={query}
       onChange={(e) => setQuery(e.target.value)}
+      backgroundColor="white"
     />
     <Link href={`/search?query=${encodeURIComponent(query)}`}>
       <Button
