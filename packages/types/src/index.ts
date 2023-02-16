@@ -8,3 +8,8 @@ export type Post = {
   content: string;
   removedContent?: boolean;
 };
+
+export type PineconeResults = {
+  matches: { id: string; score: number; metadata: Record<string, unknown> }[];
+  namespace: string;
+};

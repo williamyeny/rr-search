@@ -28,7 +28,9 @@ importers:
       eslint: 8.34.0
       eslint-config-next: 13.0.0
       framer-motion: ^9.0.3
+      got: ^12.5.3
       next: 13.1.6
+      openai: ^3.1.0
       react: ^18.2.0
       react-dom: 18.2.0
       types: workspace:*
@@ -46,7 +48,9 @@ importers:
       eslint: 8.34.0
       eslint-config-next: 13.0.0_7kw3g6rralp5ps6mg3uyzz6azm
       framer-motion: 9.0.3_biqbaboplfbrettd7655fr4n2y
+      got: 12.5.3
       next: 13.1.6_biqbaboplfbrettd7655fr4n2y
+      openai: 3.1.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       types: link:../../packages/types

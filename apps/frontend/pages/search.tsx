@@ -1,14 +1,21 @@
 import { SearchBar } from "@/components/SearchBar";
 import { Box, Container } from "@chakra-ui/react";
 import { useRouter } from "next/router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PineconeResults, Post } from "types";
 
 export default function Search() {
   const router = useRouter();
   const { query } = router.query;
-  if (!query || Array.isArray(query)) {
-    router.push("/");
+  const isInvalidQuery = !query || Array.isArray(query);
+
+  useLayoutEffect(() => {
+    if (isInvalidQuery) {
+      router.push("/");
+    }
+  }, [query]);
+
+  if (isInvalidQuery) {
     return null;
   }
 

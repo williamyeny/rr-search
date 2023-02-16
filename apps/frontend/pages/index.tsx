@@ -44,12 +44,15 @@ export default function Home() {
             <SearchBar query={query} setQuery={setQuery} />
           </Box>
           <Box width="100%">
-            <Text color="gray.600" mb={2}>
+            <Text color="gray.600">
               Need some inspiration? Try one of these:
             </Text>
-            <HStack overflow="auto">
+            <HStack overflow="auto" py={2}>
               {EXAMPLE_QUERIES.map((query) => (
-                <Link href={`/search?query=${encodeURIComponent(query)}`}>
+                <Link
+                  href={`/search?query=${encodeURIComponent(query)}`}
+                  key={query}
+                >
                   <Button
                     borderRadius={50}
                     backgroundColor="white"
