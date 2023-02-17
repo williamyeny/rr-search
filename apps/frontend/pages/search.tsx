@@ -15,6 +15,7 @@ import { NodeHtmlMarkdown } from "node-html-markdown";
 import ReactMarkdown from "react-markdown";
 import ky from "ky";
 import { ExternalLinkIcon } from "@chakra-ui/icons";
+import { format } from "date-fns";
 
 const nhm = new NodeHtmlMarkdown({
   maxConsecutiveNewlines: 2,
@@ -99,17 +100,19 @@ export default function Search() {
                 </Link>
               </Flex>
 
-              <Box color="gray.600" className="markdown">
+              <Text color="gray.600" fontSize="sm">
+                {format(new Date(post.when * 1000), "MMM d, yyyy")}
+              </Text>
+
+              <Box className="markdown">
                 <ReactMarkdown
                   transformImageUri={relativeToAbsolute}
                   transformLinkUri={relativeToAbsolute}
+                  linkTarget="_blank"
                 >
                   {post.content}
                 </ReactMarkdown>
               </Box>
-              <Text color="gray.600" fontSize="sm">
-                Score: {post.score}
-              </Text>
             </Box>
           ))}
         </VStack>

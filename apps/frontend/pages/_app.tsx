@@ -7,13 +7,25 @@ const theme = extendTheme({
   styles: {
     global: {
       ".markdown": {
+        color: "gray.700",
         p: {
-          my: "1rem",
+          my: "0.5rem",
         },
         blockquote: {
           borderLeft: "2px solid",
           borderColor: "gray.200",
           pl: "6px",
+          my: "0.5rem",
+        },
+        img: {
+          borderRadius: "8px",
+          py: "2px",
+        },
+        'img[src^="https://files.shroomery.org/smileys/"]': {
+          display: "inline",
+        },
+        a: {
+          textDecoration: "underline",
         },
       },
     },
