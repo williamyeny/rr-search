@@ -11,7 +11,8 @@ const theme = extendTheme({
           my: "1rem",
         },
         blockquote: {
-          borderLeft: "2px solid lightgray",
+          borderLeft: "2px solid",
+          borderColor: "gray.200",
           pl: "6px",
         },
       },

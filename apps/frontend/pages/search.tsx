@@ -64,21 +64,34 @@ export default function Search() {
     <Box>
       <Container py={24}>
         <VStack
-          gap={4}
+          gap={[2, 4]}
           opacity={isLoading ? 0 : 1}
           transition="opacity 0.2s ease"
         >
           {posts.map((post) => (
-            <Box key={post.id} w="100%">
-              <Flex justify="space-between">
-                <Heading size="md" fontWeight="normal" mb={2}>
+            <Box
+              key={post.id}
+              w="100%"
+              borderRadius={12}
+              borderColor="gray.200"
+              borderWidth={1}
+              p={4}
+            >
+              <Flex justify="space-between" alignItems="start">
+                <Heading size="md" fontWeight="normal">
                   {post.title}
                 </Heading>
                 <Link
                   href={`https://www.shroomery.org/forums/showflat.php/Number/${post.id}`}
+                  flexShrink={0}
+                  height="fit-content"
                   isExternal
+                  p={2}
+                  position="relative"
+                  top={-2}
+                  right={-2}
                 >
-                  <ExternalLinkIcon />
+                  <ExternalLinkIcon display="block" />
                 </Link>
               </Flex>
 
