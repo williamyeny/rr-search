@@ -58,12 +58,19 @@ export default function Search() {
           <SearchBar
             query={query}
             setQuery={setQuery}
-            onSearch={() => search(query)}
+            onSearch={() => {
+              search(query);
+              router.push(`/search?query=${encodeURIComponent(query)}`);
+            }}
           />
         </Container>
       </Box>
       <Container py={24}>
-        <VStack gap={4} opacity={isLoading ? 0 : 1}>
+        <VStack
+          gap={4}
+          opacity={isLoading ? 0 : 1}
+          transition="opacity 0.2s ease"
+        >
           {posts.map((post) => (
             <Box key={post.id} w="100%">
               <Heading size="md" fontWeight="normal" mb={2}>
