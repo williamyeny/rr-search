@@ -1,11 +1,21 @@
 import { SearchBar } from "@/components/SearchBar";
-import { Box, Container, Heading, VStack, Text } from "@chakra-ui/react";
+import {
+  Box,
+  Container,
+  Heading,
+  VStack,
+  Text,
+  Flex,
+  IconButton,
+  Link,
+} from "@chakra-ui/react";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useState } from "react";
 import { PineconeResults, Post } from "types";
 import { NodeHtmlMarkdown } from "node-html-markdown";
 import ReactMarkdown from "react-markdown";
 import ky from "ky";
+import { ExternalLinkIcon } from "@chakra-ui/icons";
 
 const nhm = new NodeHtmlMarkdown({
   maxConsecutiveNewlines: 2,
@@ -53,7 +63,45 @@ export default function Search() {
 
   return (
     <Box>
-      <Box w="100%" mt={8} position="fixed">
+      <Container py={24}>
+        <VStack
+          gap={4}
+          opacity={isLoading ? 0 : 1}
+          transition="opacity 0.2s ease"
+        >
+          {posts.map((post) => (
+            <Box key={post.id} w="100%">
+              <Flex justify="space-between">
+                <Heading size="md" fontWeight="normal" mb={2}>
+                  {post.title}
+                </Heading>
+                <Link
+                  href={`https://www.shroomery.org/forums/showflat.php/Number/${post.id}`}
+                  isExternal
+                >
+                  <IconButton
+                    height="32px"
+                    borderRadius="50px"
+                    borderWidth="1px"
+                    borderColor="gray.700"
+                    backgroundColor="white"
+                    icon={<ExternalLinkIcon />}
+                    aria-label="View original Shroomery post"
+                  />
+                </Link>
+              </Flex>
+
+              <Box color="gray.600" className="markdown">
+                <ReactMarkdown>{post.content}</ReactMarkdown>
+              </Box>
+              <Text color="gray.600" fontSize="sm">
+                ID: {post.id} | Score: {post.score}
+              </Text>
+            </Box>
+          ))}
+        </VStack>
+      </Container>
+      <Box w="100%" mt={8} top={0} position="fixed">
         <Container>
           <SearchBar
             query={query}
@@ -65,27 +113,6 @@ export default function Search() {
           />
         </Container>
       </Box>
-      <Container py={24}>
-        <VStack
-          gap={4}
-          opacity={isLoading ? 0 : 1}
-          transition="opacity 0.2s ease"
-        >
-          {posts.map((post) => (
-            <Box key={post.id} w="100%">
-              <Heading size="md" fontWeight="normal" mb={2}>
-                {post.title}
-              </Heading>
-              <Box color="gray.600" className="markdown">
-                <ReactMarkdown>{post.content}</ReactMarkdown>
-              </Box>
-              <Text color="gray.600" fontSize="sm">
-                ID: {post.id} | Score: {post.score}
-              </Text>
-            </Box>
-          ))}
-        </VStack>
-      </Container>
     </Box>
   );
 }

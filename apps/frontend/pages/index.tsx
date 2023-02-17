@@ -8,7 +8,7 @@ import {
   Text,
   HStack,
 } from "@chakra-ui/react";
-import { ChevronRightIcon } from "@chakra-ui/icons";
+import { ArrowForwardIcon } from "@chakra-ui/icons";
 import { useState } from "react";
 import Link from "next/link";
 import { SearchBar } from "@/components/SearchBar";
@@ -17,12 +17,11 @@ import { useRouter } from "next/router";
 const EXAMPLE_QUERIES = [
   "Preventing bacterial contamination",
   "Eating mushrooms from contaminated substrates",
-  "Spotting contamination in grain jars",
-  "Preparing manure as substrate",
+  "Biggest source of contamination",
   "Importance of light during fruiting",
   "Container to pressure cook agar in",
   "Tub not pinning",
-  "Using lime in substrate",
+  "Misting pins directly",
   "Storing mushrooms long-term",
 ];
 
@@ -68,7 +67,7 @@ export default function Home() {
                     borderColor="gray.200"
                     fontWeight="normal"
                     borderWidth={1}
-                    rightIcon={<ChevronRightIcon />}
+                    rightIcon={<ArrowForwardIcon />}
                     flexShrink={0}
                   >
                     {query}

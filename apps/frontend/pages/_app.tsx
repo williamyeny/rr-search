@@ -7,8 +7,12 @@ const theme = extendTheme({
   styles: {
     global: {
       ".markdown": {
-        br: {
-          height: "1.5rem",
+        p: {
+          my: "1rem",
+        },
+        blockquote: {
+          borderLeft: "2px solid lightgray",
+          pl: "6px",
         },
       },
     },
