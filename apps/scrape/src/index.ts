@@ -502,7 +502,7 @@ const sendEmbeddingsToPinecone = async (
 
   // await scrapePostFromPages(storageRaw);
   // await viewPost("9570484", storageRaw);
-  await processPosts(storageRaw, storageProcessed);
+  // await processPosts(storageRaw, storageProcessed);
   // await convertProcessedPostsToMarkdown(storageProcessed);
   // moveProcessedData(storageRaw, storageProcessed);
   // await addTitle(storageRaw, storageProcessed);
