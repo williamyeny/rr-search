@@ -29,12 +29,13 @@ type Post = {
 };
 
 const scrapeSearchPages = async (storageRaw: storage.LocalStorage) => {
-  const MAX_SEARCH_PAGES = 331; // This should be scraped, not hard-coded.
+  await storageRaw.init();
+  const MAX_SEARCH_PAGES = 359; // This should be scraped, not hard-coded.
   const SEARCH_RESULTS_LIMIT = 100;
 
   for (let i = 0; i < MAX_SEARCH_PAGES; i++) {
-    const pageKey = `page-${i}-limit-${SEARCH_RESULTS_LIMIT}`;
-    const storedPage = await storage.getItem(pageKey);
+    const pageKey = `page-${i}`;
+    const storedPage = await storageRaw.getItem(pageKey);
     if (storedPage) {
       console.log(`Page ${i} already exists`);
       continue;
@@ -42,7 +43,7 @@ const scrapeSearchPages = async (storageRaw: storage.LocalStorage) => {
 
     const data = await got
       .get(
-        `https://www.shroomery.org/forums/dosearch.php?forum%5B%5D=f2&namebox=RogerRabbit&limit=${SEARCH_RESULTS_LIMIT}&sort=d&way=d&page=${i}`
+        `https://www.shroomery.org/forums/dosearch.php?forum%5B%5D=f2&forum%5B%5D=f4&namebox=RogerRabbit&limit=${SEARCH_RESULTS_LIMIT}&sort=d&way=d&page=${i}`
       )
       .text();
 
@@ -52,16 +53,17 @@ const scrapeSearchPages = async (storageRaw: storage.LocalStorage) => {
       break;
     }
 
-    await storage.setItem(pageKey, data);
+    await storageRaw.setItem(pageKey, data);
     console.log(`Page ${i} saved`);
 
     await new Promise(
-      (resolve) => setTimeout(resolve, Math.random() * 3000 + 3000) // Since we're loading HTML pages, give it extra delay.
+      (resolve) => setTimeout(resolve, Math.random() * 1000 + 2000) // Since we're loading HTML pages, give it extra delay.
     );
   }
 };
 
 const scrapePostFromPages = async (storageRaw: storage.LocalStorage) => {
+  await storageRaw.init();
   const pageKeys = (await storageRaw.keys())
     .filter((key) => key.startsWith("page-"))
     .sort((a, b) => {
@@ -77,17 +79,17 @@ const scrapePostFromPages = async (storageRaw: storage.LocalStorage) => {
       const page: string = await storageRaw.getItem(pageKey);
 
       const $ = load(page);
-      const postInfo = $("body")
+      const postIds = $("body")
         .find(".pp")
-        .map((_, el) => ({ id: el.attribs.id.slice(1), title: $(el).text() }))
+        .map((_, el) => el.attribs.id.slice(1))
         .get();
 
       console.log(
-        `[${numPagesProcessed}/${pageKeys.length}] Saving ${postInfo.length} posts from ${pageKey}...`
+        `[${numPagesProcessed}/${pageKeys.length}] Saving ${postIds.length} posts from ${pageKey}...`
       );
 
       let numPostsProcessed = 0;
-      for (const { id, title } of postInfo) {
+      for (const id of postIds) {
         numPostsProcessed++;
         try {
           const postKey = `post-${id}`;
@@ -107,20 +109,9 @@ const scrapePostFromPages = async (storageRaw: storage.LocalStorage) => {
             continue;
           }
 
-          const $ = load(data, { xmlMode: true });
-          const postJson: Post = {
-            id: parseInt($("id").text()),
-            title,
-            first: parseInt($("first").text()),
-            last: parseInt($("last").text()),
-            when: parseInt($("when").text()),
-            utime: $("utime").text(),
-            content: $("content").text(),
-          };
-
-          await storageRaw.setItem(postKey, postJson);
+          await storageRaw.setItem(postKey, data);
           console.log(
-            `[${numPostsProcessed}/${postInfo.length}] Post ${id} saved`
+            `[${numPostsProcessed}/${postIds.length}] Post ${id} saved`
           );
           await new Promise((resolve) =>
             setTimeout(resolve, Math.random() * 1000 + 500)
@@ -188,12 +179,28 @@ const processPosts = async (
   for (const pageKey of pageKeys) {
     const page: string = await storageRaw.getItem(pageKey);
     const $ = load(page);
-    const postInfo = $("body")
+    const postIdsAndTitles = $("body")
       .find(".pp")
       .map((_, el) => ({ id: el.attribs.id.slice(1), title: $(el).text() }))
       .get();
+    const postForums = $("body")
+      .find(".forumrow a")
+      .map((_, el) => $(el).text().slice(1, -1)) // Slice to remove the leading and trailing newlines.
+      .get();
 
-    for (const { id, title } of postInfo) {
+    if (postIdsAndTitles.length !== postForums.length) {
+      console.log(
+        `${pageKey}: postIdsAndTitles length (${postIdsAndTitles.length}) does not match postForums length (${postForums.length})`
+      );
+      continue;
+    }
+
+    const postInfo = postIdsAndTitles.map((idsAndTitles, i) => ({
+      ...idsAndTitles,
+      forum: postForums[i],
+    }));
+
+    for (const { id, title, forum } of postInfo) {
       const postKey = `post-${id}`;
       const post: string | undefined = await storageRaw.getItem(postKey);
       if (!post) {
@@ -226,6 +233,7 @@ const processPosts = async (
         utime: $("utime").text(),
         content: cleanedContent,
         title,
+        forum,
       };
 
       await storageProcessed.setItem(`processedPost-${postJson.id}`, postJson);
@@ -499,6 +507,7 @@ const sendEmbeddingsToPinecone = async (
   const storageRaw = storage.create({ dir: "storage/raw" });
   const storageEmbeddings = storage.create({ dir: "storage/embeddings" });
   // await scrapeSearchPages(storageRaw);
+
   // await scrapePostFromPages(storageRaw);
   // await viewPost("9570484", storageRaw);
   await processPosts(storageRaw, storageProcessed);
