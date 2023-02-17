@@ -16,6 +16,7 @@ import ReactMarkdown from "react-markdown";
 import ky from "ky";
 import { ExternalLinkIcon } from "@chakra-ui/icons";
 import { format } from "date-fns";
+import { useToast } from "@chakra-ui/react";
 
 const nhm = new NodeHtmlMarkdown({
   maxConsecutiveNewlines: 2,
@@ -34,7 +35,18 @@ export default function Search() {
 
   const [posts, setPosts] = useState<({ score: number } & Post)[]>([]);
 
+  const toast = useToast();
+
   const search = useCallback(async (query: string) => {
+    if (query.length > 200) {
+      toast({
+        title: "Query too long.",
+        description: "Please try again with a shorter query.",
+        status: "error",
+        isClosable: true,
+      });
+      return;
+    }
     setIsLoading(true);
     try {
       const results = await ky(
@@ -47,6 +59,13 @@ export default function Search() {
           content: nhm.translate(metadata.content), // This should be done at scrape-time.
         }))
       );
+    } catch (e) {
+      toast({
+        title: "An error occurred.",
+        description: "Please try again later.",
+        status: "error",
+        isClosable: true,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -56,8 +75,8 @@ export default function Search() {
     if (router.isReady) {
       const passedInQuery = router.query.query;
       if (passedInQuery && !Array.isArray(passedInQuery)) {
-        search(passedInQuery);
         setQuery(passedInQuery);
+        search(passedInQuery);
       } else {
         console.log("redirecting out");
         router.push("/");
@@ -123,7 +142,7 @@ export default function Search() {
             query={query}
             setQuery={setQuery}
             onSearch={() => {
-              search(query);
+              // search(query);
               router.push(`/search?query=${encodeURIComponent(query)}`);
             }}
           />

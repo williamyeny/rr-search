@@ -31,6 +31,7 @@ export const SearchBar = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             backgroundColor="white"
+            pr="32px"
           />
           {query && (
             <IconButton
