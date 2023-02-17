@@ -451,13 +451,7 @@ const sendEmbeddingsToPinecone = async (
         };
       }
       return post;
-    })
-    .filter((post) => post.metadata.content === "");
-
-  console.log(vectors.length);
-  if (vectors.length !== 1) {
-    return;
-  }
+    });
 
   const failedPineconeUpserts: string[] = [];
   const VECTOR_BATCH_SIZE = 100;
@@ -510,7 +504,7 @@ const sendEmbeddingsToPinecone = async (
   // await getEmbeddings(storageProcessed, storageEmbeddings);
   // search("how to prevent contamination?", storageEmbeddings);
 
-  // sendEmbeddingsToPinecone(storageEmbeddings);
+  sendEmbeddingsToPinecone(storageEmbeddings);
 
   // searchPinecone("Storing dried mushrooms long-term");
 })();
