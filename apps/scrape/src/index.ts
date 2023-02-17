@@ -6,6 +6,7 @@ import { NodeHtmlMarkdown } from "node-html-markdown";
 import { Configuration, OpenAIApi } from "openai";
 import { similarity } from "ml-distance";
 import { getEnvVar } from "./utils.js";
+import { Post } from "types";
 
 const openai = new OpenAIApi(
   new Configuration({
@@ -17,16 +18,6 @@ const nhm = new NodeHtmlMarkdown({
   maxConsecutiveNewlines: 2,
   useInlineLinks: false,
 });
-
-type Post = {
-  id: number;
-  title: string;
-  first: number;
-  last: number;
-  when: number;
-  utime: string;
-  content: string;
-};
 
 const scrapeSearchPages = async (storageRaw: storage.LocalStorage) => {
   await storageRaw.init();
@@ -225,7 +216,7 @@ const processPosts = async (
           "<blockquote>Quote:<br /><b>$2 said:</b>$3</blockquote>"
         );
 
-      const postJson = {
+      const postJson: Post = {
         id: parseInt($("id").text()),
         first: parseInt($("first").text()),
         last: parseInt($("last").text()),
@@ -441,6 +432,7 @@ const sendEmbeddingsToPinecone = async (
         first: post.first,
         last: post.last,
         content: post.content,
+        forum: post.forum,
         poster: "RogerRabbit",
       },
       values: post.embedding,

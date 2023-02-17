@@ -6,6 +6,7 @@ export type Post = {
   when: number;
   utime: string;
   content: string;
+  forum: string;
   removedContent?: boolean;
 };
 
