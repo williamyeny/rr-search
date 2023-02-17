@@ -6,7 +6,6 @@ import {
   VStack,
   Text,
   Flex,
-  IconButton,
   Link,
 } from "@chakra-ui/react";
 import { useRouter } from "next/router";
@@ -79,15 +78,7 @@ export default function Search() {
                   href={`https://www.shroomery.org/forums/showflat.php/Number/${post.id}`}
                   isExternal
                 >
-                  <IconButton
-                    height="32px"
-                    borderRadius="50px"
-                    borderWidth="1px"
-                    borderColor="gray.700"
-                    backgroundColor="white"
-                    icon={<ExternalLinkIcon />}
-                    aria-label="View original Shroomery post"
-                  />
+                  <ExternalLinkIcon />
                 </Link>
               </Flex>
 
@@ -95,7 +86,7 @@ export default function Search() {
                 <ReactMarkdown>{post.content}</ReactMarkdown>
               </Box>
               <Text color="gray.600" fontSize="sm">
-                ID: {post.id} | Score: {post.score}
+                Score: {post.score}
               </Text>
             </Box>
           ))}
