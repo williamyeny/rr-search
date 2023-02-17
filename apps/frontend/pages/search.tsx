@@ -21,6 +21,10 @@ const nhm = new NodeHtmlMarkdown({
   useInlineLinks: false,
 });
 
+const relativeToAbsolute = (url: string) => {
+  return url.startsWith("/") ? `https://www.shroomery.org${url}` : url;
+};
+
 export default function Search() {
   const router = useRouter();
 
@@ -96,7 +100,12 @@ export default function Search() {
               </Flex>
 
               <Box color="gray.600" className="markdown">
-                <ReactMarkdown>{post.content}</ReactMarkdown>
+                <ReactMarkdown
+                  transformImageUri={relativeToAbsolute}
+                  transformLinkUri={relativeToAbsolute}
+                >
+                  {post.content}
+                </ReactMarkdown>
               </Box>
               <Text color="gray.600" fontSize="sm">
                 Score: {post.score}
