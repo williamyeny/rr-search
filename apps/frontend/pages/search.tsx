@@ -12,20 +12,16 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useState } from "react";
 import { PineconeResults, Post } from "types";
 import { NodeHtmlMarkdown } from "node-html-markdown";
-import ReactMarkdown from "react-markdown";
 import ky from "ky";
 import { ExternalLinkIcon } from "@chakra-ui/icons";
 import { format } from "date-fns";
 import { useToast } from "@chakra-ui/react";
+import { Markdown } from "@/components/Markdown";
 
 const nhm = new NodeHtmlMarkdown({
   maxConsecutiveNewlines: 2,
   useInlineLinks: false,
 });
-
-const relativeToAbsolute = (url: string) => {
-  return url.startsWith("/") ? `https://www.shroomery.org${url}` : url;
-};
 
 export default function Search() {
   const router = useRouter();
@@ -123,15 +119,7 @@ export default function Search() {
                 {format(new Date(post.when * 1000), "MMM d, yyyy")}
               </Text>
 
-              <Box className="markdown">
-                <ReactMarkdown
-                  transformImageUri={relativeToAbsolute}
-                  transformLinkUri={relativeToAbsolute}
-                  linkTarget="_blank"
-                >
-                  {post.content}
-                </ReactMarkdown>
-              </Box>
+              <Markdown>{post.content}</Markdown>
             </Box>
           ))}
         </VStack>
@@ -145,6 +133,7 @@ export default function Search() {
               // search(query);
               router.push(`/search?query=${encodeURIComponent(query)}`);
             }}
+            isLoading={isLoading}
           />
         </Container>
       </Box>

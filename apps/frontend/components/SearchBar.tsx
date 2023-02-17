@@ -1,5 +1,12 @@
 import { CloseIcon, SearchIcon } from "@chakra-ui/icons";
-import { Flex, Input, Button, Box, IconButton } from "@chakra-ui/react";
+import {
+  Flex,
+  Input,
+  Button,
+  Box,
+  IconButton,
+  Spinner,
+} from "@chakra-ui/react";
 import { useRef } from "react";
 
 export const SearchBar = ({
@@ -53,13 +60,20 @@ export const SearchBar = ({
 
         <Button
           right={0}
-          leftIcon={<SearchIcon />}
+          leftIcon={!isLoading ? <SearchIcon /> : <Spinner />}
           flexShrink={0}
           backgroundColor="black"
           color="white"
           borderRadius={50}
           isDisabled={isLoading}
+          _hover={{
+            backgroundColor: "gray.700",
+          }}
+          _active={{
+            backgroundColor: "gray.500",
+          }}
           type="submit"
+          aria-label="Search"
         >
           Search
         </Button>
