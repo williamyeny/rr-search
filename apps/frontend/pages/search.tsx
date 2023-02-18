@@ -78,12 +78,10 @@ export default function Search() {
         return;
       }
 
-      if (query !== passedInQuery) {
-        setQuery(passedInQuery);
-        search(passedInQuery);
-      }
+      setQuery(passedInQuery);
+      search(passedInQuery);
     }
-  }, [query, router, search]);
+  }, [router, search]);
 
   return (
     <Box>
