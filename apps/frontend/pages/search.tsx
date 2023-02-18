@@ -1,13 +1,5 @@
 import { SearchBar } from "@/components/SearchBar";
-import {
-  Box,
-  Container,
-  Heading,
-  VStack,
-  Text,
-  Flex,
-  Link,
-} from "@chakra-ui/react";
+import { Box, Container, Heading, VStack, Text, Link } from "@chakra-ui/react";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useState } from "react";
 import { PineconeResults, Post } from "types";
@@ -35,7 +27,8 @@ export default function Search() {
 
   const search = useCallback(
     async (query: string) => {
-      if (query.length > 200) {
+      const trimmedQuery = query.trim();
+      if (trimmedQuery.length > 200) {
         toast({
           title: "Query too long.",
           description: "Please try again with a shorter query.",
@@ -47,7 +40,7 @@ export default function Search() {
       setIsLoading(true);
       try {
         const results = await ky(
-          `/api/search?query=${encodeURIComponent(query)}`
+          `/api/search?query=${encodeURIComponent(trimmedQuery)}`
         ).json<PineconeResults>();
         setPosts(
           results.matches.map(({ metadata, ...rest }) => ({
