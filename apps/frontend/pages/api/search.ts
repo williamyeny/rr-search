@@ -52,7 +52,8 @@ export default async function handler(req: NextRequest) {
   });
   const pineconeJson: PineconeResults = await pineconeRes.json();
 
-  return new NextResponse(JSON.stringify(pineconeJson), {
+  return NextResponse.json(pineconeJson, {
+    status: 200,
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "s-maxage=86400, max-age=60",
