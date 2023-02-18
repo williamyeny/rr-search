@@ -6,7 +6,6 @@ import {
   Heading,
   VStack,
   Text,
-  HStack,
 } from "@chakra-ui/react";
 import { ArrowForwardIcon } from "@chakra-ui/icons";
 import { useState } from "react";
@@ -54,27 +53,29 @@ export default function Home() {
             <Text color="gray.600">
               Need some inspiration? Try one of these:
             </Text>
-            <HStack overflow="auto" py={2}>
+            <VStack py={2} align="start" overflow="hidden">
               {EXAMPLE_QUERIES.map((query) => (
                 <Link
                   href={`/search?query=${encodeURIComponent(query)}`}
                   key={query}
                 >
-                  <Button
-                    borderRadius={50}
-                    backgroundColor="white"
-                    color="gray.700"
-                    borderColor="gray.200"
-                    fontWeight="normal"
-                    borderWidth={1}
-                    rightIcon={<ArrowForwardIcon />}
-                    flexShrink={0}
-                  >
-                    {query}
-                  </Button>
+                  <Box overflow="auto" width="100%">
+                    <Button
+                      borderRadius={50}
+                      backgroundColor="white"
+                      color="gray.700"
+                      borderColor="gray.200"
+                      fontWeight="normal"
+                      borderWidth={1}
+                      rightIcon={<ArrowForwardIcon />}
+                      flexShrink={0}
+                    >
+                      {query}
+                    </Button>
+                  </Box>
                 </Link>
               ))}
-            </HStack>
+            </VStack>
           </Box>
         </VStack>
         {/* <Text color="gray.600" textAlign="center" mb={4}>
