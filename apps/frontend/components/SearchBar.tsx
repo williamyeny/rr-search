@@ -6,6 +6,7 @@ import {
   Box,
   IconButton,
   Spinner,
+  useBreakpoint,
 } from "@chakra-ui/react";
 import { useRef } from "react";
 
@@ -21,6 +22,7 @@ export const SearchBar = ({
   isLoading?: boolean;
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const breakpoint = useBreakpoint();
 
   return (
     <form
@@ -74,8 +76,10 @@ export const SearchBar = ({
           }}
           type="submit"
           aria-label="Search"
+          pr={{ base: 0, sm: 4 }}
+          pl={{ base: 2, sm: 4 }}
         >
-          Search
+          {breakpoint === "base" ? "" : "Search"}
         </Button>
       </Flex>
     </form>
