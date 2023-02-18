@@ -10,6 +10,10 @@ const theme = extendTheme({
       ...markdownStyles,
     },
   },
+  shadows: {
+    "light-lg":
+      "0 10px 15px -3px rgba(0, 0, 0, 0.05),0 4px 6px -2px rgba(0, 0, 0, 0.025)",
+  },
 });
 
 export default function App({ Component, pageProps }: AppProps) {

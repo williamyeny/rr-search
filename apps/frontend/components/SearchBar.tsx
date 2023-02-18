@@ -32,7 +32,12 @@ export const SearchBar = ({
       }}
     >
       <Flex gap={2} justify="space-between">
-        <Box position="relative" w="100%">
+        <Box
+          position="relative"
+          w="100%"
+          boxShadow="light-lg"
+          borderRadius={50}
+        >
           <Input
             ref={inputRef}
             placeholder="Query"
@@ -78,6 +83,7 @@ export const SearchBar = ({
           aria-label="Search"
           pr={{ base: 0, sm: 4 }}
           pl={{ base: 2, sm: 4 }}
+          boxShadow="light-lg"
         >
           {breakpoint === "base" ? "" : "Search"}
         </Button>
