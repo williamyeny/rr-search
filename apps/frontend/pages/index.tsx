@@ -37,7 +37,7 @@ export default function Home() {
               RR Search
             </Heading>
             <Text color="gray.600">
-              A semantic search engine for RR's Shroomery posts.
+              A semantic search engine for RR&apos;s Shroomery posts.
             </Text>
           </VStack>
           <Box pb={8} w="100%">
