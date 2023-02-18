@@ -98,7 +98,7 @@ export default function Search() {
               p={4}
             >
               <Flex justify="space-between" alignItems="start">
-                <Heading size="md" fontWeight="normal">
+                <Heading size="md" fontWeight="medium">
                   {post.title}
                 </Heading>
                 <Link
@@ -130,7 +130,6 @@ export default function Search() {
             query={query}
             setQuery={setQuery}
             onSearch={() => {
-              // search(query);
               router.push(`/search?query=${encodeURIComponent(query)}`);
             }}
             isLoading={isLoading}
