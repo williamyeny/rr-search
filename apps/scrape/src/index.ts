@@ -1,12 +1,20 @@
 import got from "got";
 import storage from "node-persist";
 import { load } from "cheerio";
-import { encode } from "gpt-3-encoder";
 import { NodeHtmlMarkdown } from "node-html-markdown";
 import { Configuration, OpenAIApi } from "openai";
 import { similarity } from "ml-distance";
 import { getEnvVar } from "./utils.js";
 import { Post } from "types";
+
+/**
+ * 1. Search pages get scraped and put in storageRaw.
+ * 2. Post IDs are extracted from the search pages.
+ * 3. Posts are scraped using the found IDs and put in storageRaw.
+ * 4. Posts are processed (add metadata like title and put into JSON format).
+ * 5. Posts are sent to OpenAI to generate vector embeddings.
+ * 6. Embeddings are uploaded to Pinecome (vector database).
+ */
 
 const openai = new OpenAIApi(
   new Configuration({
@@ -120,36 +128,6 @@ const scrapePostFromPages = async (storageRaw: storage.LocalStorage) => {
   }
 };
 
-const convertProcessedPostsToMarkdown = async (
-  storageProcessed: storage.LocalStorage
-) => {
-  console.log("Loading...");
-  await storageProcessed.init();
-  const postKeys = (await storage.keys()).filter((key) =>
-    key.startsWith("processedPost-")
-  );
-  console.log("Loaded.");
-
-  let maxTokens = 0;
-  let postWithMaxTokens = "";
-  let numTokens = 0;
-  for (const postKey of postKeys) {
-    const post: { id: number; content: string } = await storage.getItem(
-      postKey
-    );
-    const markdown = nhm.translate(post.content);
-    const encoded = encode(markdown);
-    if (encoded.length > maxTokens) {
-      maxTokens = encoded.length;
-      postWithMaxTokens = postKey;
-    }
-    numTokens += encoded.length;
-  }
-  console.log("numTokens", numTokens);
-  console.log("maxTokens", maxTokens);
-  console.log("postWithMaxTokens", postWithMaxTokens);
-};
-
 const viewPost = async (postId: string, storageRaw: storage.LocalStorage) => {
   const postKey = `post-${postId}`;
   const post: string = await storageRaw.getItem(postKey);
@@ -229,25 +207,6 @@ const processPosts = async (
 
       await storageProcessed.setItem(`processedPost-${postJson.id}`, postJson);
     }
-  }
-};
-
-// Move processed data from storageRaw to storageProcessed.
-const moveProcessedData = async (
-  storageRaw: storage.LocalStorage,
-  storageProcessed: storage.LocalStorage
-) => {
-  await Promise.all([storageRaw.init(), storageProcessed.init()]);
-
-  const postKeys = (await storageRaw.keys()).filter((key) =>
-    key.startsWith("processedPost-")
-  );
-  let i = 0;
-  for (const postKey of postKeys) {
-    const post = await storageRaw.getItem(postKey);
-    storageProcessed.setItem(postKey, post);
-    storageRaw.removeItem(postKey);
-    console.log(`${++i}/${postKeys.length}`);
   }
 };
 
@@ -378,43 +337,6 @@ const searchPinecone = async (query: string) => {
   console.log(matches);
 };
 
-// Whoops... forgot to add the title to the processed posts.
-const addTitle = async (
-  storageRaw: storage.LocalStorage,
-  storageProcessed: storage.LocalStorage
-) => {
-  await Promise.all([storageRaw.init(), storageProcessed.init()]);
-  const pageKeys = (await storageRaw.keys()).filter((key) =>
-    key.startsWith("page-")
-  );
-  for (const pageKey of pageKeys) {
-    const page: string = await storageRaw.getItem(pageKey);
-    const $ = load(page);
-    const postInfo = $("body")
-      .find(".pp")
-      .map((_, el) => ({ id: el.attribs.id.slice(1), title: $(el).text() }))
-      .get();
-
-    for (const { id, title } of postInfo) {
-      const post:
-        | (Omit<Post, "content"> & { cleanedPost: string })
-        | undefined = await storageProcessed.getItem(`processedPost-${id}`);
-      if (post) {
-        const { cleanedPost, ...rest } = post;
-        await storageProcessed.setItem(`processedPost-${id}`, {
-          ...rest,
-          content: cleanedPost,
-          title,
-        });
-      } else {
-        console.error(`Post ${id} not found`);
-      }
-    }
-
-    console.log(`Processed ${pageKey}`);
-  }
-};
-
 const sendEmbeddingsToPinecone = async (
   storageEmbeddings: storage.LocalStorage
 ) => {
@@ -497,9 +419,6 @@ const sendEmbeddingsToPinecone = async (
   // await scrapePostFromPages(storageRaw);
   // await viewPost("9570484", storageRaw);
   // await processPosts(storageRaw, storageProcessed);
-  // await convertProcessedPostsToMarkdown(storageProcessed);
-  // moveProcessedData(storageRaw, storageProcessed);
-  // await addTitle(storageRaw, storageProcessed);
 
   // await getEmbeddings(storageProcessed, storageEmbeddings);
   // search("how to prevent contamination?", storageEmbeddings);

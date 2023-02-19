@@ -39,6 +39,7 @@ export default async function handler(req: NextRequest) {
     return new NextResponse("Bad Request", { status: 400 });
   }
 
+  // Don't block on cache failing. Upstash has a 10k command limit per day.
   let redis: Redis | undefined = undefined;
   try {
     redis = new Redis({
@@ -50,9 +51,7 @@ export default async function handler(req: NextRequest) {
     if (cached && typeof cached === "object") {
       return NextResponse.json(cached, RESPONSE_OPTIONS);
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   const embeddingRes = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
@@ -87,9 +86,7 @@ export default async function handler(req: NextRequest) {
   if (redis) {
     try {
       await redis.set(query, JSON.stringify(pineconeJson));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   return NextResponse.json(pineconeJson, RESPONSE_OPTIONS);
