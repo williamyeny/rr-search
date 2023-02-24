@@ -423,7 +423,7 @@ const sendEmbeddingsToPinecone = async (
   // await getEmbeddings(storageProcessed, storageEmbeddings);
   // search("how to prevent contamination?", storageEmbeddings);
 
-  sendEmbeddingsToPinecone(storageEmbeddings);
+  // sendEmbeddingsToPinecone(storageEmbeddings);
 
-  // searchPinecone("Storing dried mushrooms long-term");
+  searchPinecone("Storing dried mushrooms long-term");
 })();
