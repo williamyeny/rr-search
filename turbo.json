@@ -9,12 +9,13 @@
     "REDIS_REST_URL",
     "REDIS_REST_TOKEN"
   ],
-  "pipeline": {
+  "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**"]
     },
     "scrape": {},
+    "export": {},
     "lint": {
       "outputs": []
     },
